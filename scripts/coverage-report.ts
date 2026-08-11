@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { appendFile, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import libCoverage from "istanbul-lib-coverage";
 import libReport from "istanbul-lib-report";
@@ -72,3 +72,73 @@ if (dropped.size > 0) {
   );
 }
 console.log(`HTML report: ${path.join(REPORT_DIR, "index.html")}`);
+
+// Enforced minimums, local and CI alike. A report is not evidence on its own:
+// instrumentation that quietly stops reaching half the app still renders a
+// perfectly well-formed report, just of less. Only a gate turns the number into
+// a claim. Statements and lines carry the margin (~94% against 90); branches
+// and functions are reported but not gated, since branch coverage here is
+// bounded by guard clauses no call site can reach.
+const THRESHOLDS = { lines: 90, statements: 90 } as const;
+
+const totals = map.getCoverageSummary();
+const metrics = ["branches", "functions", "lines", "statements"] as const;
+const gates = metrics
+  .filter((metric): metric is keyof typeof THRESHOLDS => metric in THRESHOLDS)
+  .map((metric) => ({
+    met: totals[metric].pct >= THRESHOLDS[metric],
+    metric,
+    minimum: THRESHOLDS[metric],
+    pct: totals[metric].pct,
+  }));
+
+console.log(
+  `\nthresholds: ${gates
+    .map(
+      ({ met, metric, minimum, pct }) =>
+        `${metric} ≥${minimum} ${met ? "✓" : "✗"} ${pct.toFixed(2)}`,
+    )
+    .join(" · ")}`,
+);
+
+// GitHub's job summary, when there is one. The script stays CI-agnostic
+// otherwise: no GITHUB_STEP_SUMMARY, no extra output.
+const stepSummary = process.env.GITHUB_STEP_SUMMARY;
+
+if (stepSummary) {
+  const row = (metric: (typeof metrics)[number]) => {
+    const { covered, pct, total } = totals[metric];
+    const gate = gates.find((entry) => entry.metric === metric);
+
+    return `| ${metric} | ${pct.toFixed(2)}% | ${covered}/${total} | ${
+      gate ? `≥${gate.minimum} ${gate.met ? "✓" : "✗"}` : "—"
+    } |`;
+  };
+
+  await appendFile(
+    stepSummary,
+    [
+      "## Coverage",
+      "",
+      "| metric | covered | counts | threshold |",
+      "| --- | ---: | ---: | --- |",
+      ...metrics.map(row),
+      "",
+      `${map.files().length} source file(s) from ${files.length} raw coverage file(s).`,
+      "",
+    ].join("\n"),
+  );
+}
+
+const failed = gates.filter(({ met }) => !met);
+
+if (failed.length > 0) {
+  console.error(
+    `\nCoverage below threshold: ${failed
+      .map(
+        ({ metric, minimum, pct }) => `${metric} ${pct.toFixed(2)} < ${minimum}`,
+      )
+      .join(", ")}`,
+  );
+  process.exit(1);
+}
