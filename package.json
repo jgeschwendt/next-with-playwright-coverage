@@ -1,0 +1,63 @@
+{
+  "name": "next-play",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "coverage": "rm -rf .nyc_output coverage && bun run coverage:build && COVERAGE=1 COVERAGE_MODE=prod bun run test:e2e && bun run coverage:report",
+    "coverage:build": "COVERAGE=1 NODE_OPTIONS=\"--require ./scripts/coverage-exit.cjs\" next build",
+    "coverage:dev": "rm -rf .nyc_output coverage && COVERAGE=1 COVERAGE_MODE=dev bun run test:e2e && bun run coverage:report",
+    "coverage:report": "bun scripts/coverage-report.ts",
+    "dev": "next dev --turbopack",
+    "start": "next start",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@heroicons/react": "2.2.0",
+    "@mdx-js/loader": "3.1.1",
+    "@mdx-js/react": "3.1.1",
+    "@next/mdx": "16.2.6",
+    "@types/mdx": "2.0.13",
+    "clsx": "2.1.1",
+    "codehike": "1.0.7",
+    "date-fns": "4.1.0",
+    "dinero.js": "2.0.0-alpha.10",
+    "ms": "3.0.0-canary.1",
+    "next": "16.3.0-preview.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recma-codehike": "0.0.1",
+    "remark-codehike": "0.0.1",
+    "server-only": "0.0.1",
+    "styled-components": "6.1.15",
+    "use-count-up": "3.0.1",
+    "zod": "3.24.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/forms": "0.5.10",
+    "@tailwindcss/postcss": "4.1.4",
+    "@tailwindcss/typography": "0.5.16",
+    "@types/istanbul-lib-coverage": "^2.0.6",
+    "@types/istanbul-lib-report": "^3.0.3",
+    "@types/istanbul-reports": "^3.0.4",
+    "@types/ms": "2.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-report": "^3.0.1",
+    "istanbul-reports": "^3.2.0",
+    "postcss": "8.5.14",
+    "swc-plugin-coverage-instrument": "^0.0.32",
+    "tailwindcss": "4.1.4",
+    "typescript": "^5"
+  },
+  "packageManager": "bun@1.3.14",
+  "trustedDependencies": [
+    "@tailwindcss/oxide",
+    "sharp",
+    "unrs-resolver"
+  ]
+}
