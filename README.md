@@ -1,5 +1,8 @@
 # next-play
 
+[![coverage](https://github.com/jgeschwendt/next-with-playwright-coverage/actions/workflows/coverage.yml/badge.svg)](https://github.com/jgeschwendt/next-with-playwright-coverage/actions/workflows/coverage.yml)
+[![report](https://img.shields.io/badge/report-jgeschwendt.github.io-blue)](https://jgeschwendt.github.io/next-with-playwright-coverage/)
+
 Vercel's [app-playground](https://github.com/vercel/app-playground) template on
 Next.js 16 App Router, wired to Playwright e2e tests and Istanbul-format code
 coverage that spans both Client and Server Components.
@@ -63,6 +66,12 @@ bunx playwright install chromium
    path has no file on disk — Next hands the instrumenter synthetic modules
    (`<component>.tsx/__nextjs-internal-proxy.mjs` boundary shims, `data:` module
    URLs, `<name>.mdx.tsx` compiled MDX) whose counters no reporter can render.
+   It then enforces the minimums — statements and lines ≥90 — and exits non-zero
+   below either, printing `thresholds: lines ≥90 ✓ 94.14 · statements ≥90 ✓
+   93.77`. The gate is unconditional: a report is not evidence on its own, since
+   instrumentation that stops reaching half the app still renders a well-formed
+   report, just of less. Branches and functions are reported but not gated —
+   branch coverage here is bounded by guard clauses no call site can reach.
 
 Server coverage is cumulative across the run (one server process, one global).
 Re-reading it after every test is fine — Istanbul's merge is idempotent for
@@ -149,6 +158,35 @@ only runs when Next actually prefetches. What remains uncovered in both:
 | `ui/codehike.tsx` `MyInlineCode` and `mark.Inline`               | codehike leaves plain inline code as `<code>`, and no readme uses inline annotations |
 | `session-suffix.tsx` `regenerate()`                             | calls `location.reload()`, which discards `window.__coverage__` |
 | `app/api/coverage/route.ts` 404 guard                            | only taken when `COVERAGE` is unset, i.e. when nothing is measuring |
+
+## CI
+
+[`.github/workflows/coverage.yml`](.github/workflows/coverage.yml) runs on every
+push to `main` (and on demand): `bun install --frozen-lockfile`,
+`bunx playwright install --with-deps chromium`, `bun run typecheck`,
+`bun run coverage` — the production flow above, unmodified, on `ubuntu-latest`
+under the bun pinned in `packageManager`. It is not a lighter variant of the
+local run: same instrumented build, same 43 tests, same merged report, failing
+the job through the same threshold gate.
+
+What that proves is the number, not just the suite. Build-worker dumps are the
+fragile half of this setup, and a runner that never saw the repo lands within
+noise of the local figure — 93.80% statements on CI against 93.77% locally, over
+87 raw coverage files instead of 99 (fewer cores, so Next spawns fewer
+static-generation workers; each one still flushes).
+(measured 2026-08-11 · [run 31531314513](https://github.com/jgeschwendt/next-with-playwright-coverage/actions/runs/31531314513),
+2m16s: 23s browsers, 4s typecheck, 88s the coverage flow itself)
+
+The merged HTML report is published to GitHub Pages from that same run —
+<https://jgeschwendt.github.io/next-with-playwright-coverage/> — so the badge and
+the report behind it always describe one build. The totals table is appended to
+the job summary, and `coverage/` is kept as a run artifact for 30 days.
+
+One CI-only hazard so far: the single click in `e2e/interactions.spec.ts` with no
+assertion between it and its `goto` can land mid-hydration, where the Link's
+anchor is already `preventDefault`'d but the router cannot act yet — the
+navigation is dropped silently. It retries as a unit; the assertion is unchanged.
+(observed 2026-08-11 · green locally, failed on the first CI run)
 
 ## Notes
 
