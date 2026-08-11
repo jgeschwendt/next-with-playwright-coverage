@@ -86,9 +86,24 @@ test.describe("segment boundaries", () => {
 
     // The layout deliberately offers a tab that resolves to no category. The
     // demo's own layout offers a same-named tab one level up, so match on href.
-    await page.locator('a[href="/not-found/clothing/does-not-exist"]').click();
+    //
+    // Retried as a unit: this is the only click in the suite with no assertion
+    // between it and the `goto`, so on a cold CI runner it can land in the
+    // window where React has hydrated the Link — the anchor's default action is
+    // already preventDefault'd — but the router cannot yet act on it, and the
+    // navigation is dropped with no error. The assertion is unchanged; only the
+    // click is repeated until one of them takes.
+    // (observed 2026-08-11 · ubuntu-latest, URL still `/not-found/clothing`
+    // after 5s; 42/43 otherwise green, never reproduced locally)
+    await expect(async () => {
+      await page
+        .locator('a[href="/not-found/clothing/does-not-exist"]')
+        .click();
 
-    await expect(page).toHaveURL(/\/not-found\/clothing\/does-not-exist$/);
+      await expect(page).toHaveURL(/\/not-found\/clothing\/does-not-exist$/, {
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: SLOW });
     await expect(
       page.getByRole("heading", { name: "Not Found" }).first(),
     ).toBeVisible({ timeout: SLOW });
